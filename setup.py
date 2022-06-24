@@ -56,5 +56,6 @@ setup(
     },
     scripts=[
         'bin/run-connected',
+        'bin/kill_openvpn.sh'
     ]
 )

@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 import sys
 import time
 import sqlite3
@@ -15,7 +16,6 @@ from nautapy import appdata_path
 
 from base64 import b85encode, b85decode
 from datetime import datetime
-
 
 USERS_DB = os.path.join(appdata_path, "users.db")
 
@@ -181,6 +181,10 @@ def up(args):
                 pass
             finally:
                 print("\n\nCerrando sesión ...")
+                #Voy a chequear si tengo openvpn ejecutando antes del logout
+                if NautaProtocol.checkIfProcessRunning('openvpn'):
+                    print('Está ejecutando openvpn, voy a cerrarlo')
+                    subprocess.run(('sudo', 'kill_openvpn.sh'))
                 print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
 
  

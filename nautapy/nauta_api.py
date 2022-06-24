@@ -30,6 +30,9 @@ import bs4
 import requests
 from requests import RequestException
 
+import psutil
+import subprocess
+
 from nautapy import appdata_path
 from nautapy.__about__ import __name__ as prog_name
 from nautapy.exceptions import NautaLoginException, NautaLogoutException, NautaException, NautaPreLoginException
@@ -201,7 +204,6 @@ class NautaProtocol(object):
                 session.attribute_uuid,
                 session.wlanuserip
             )
-
         response = session.requests_session.post(logout_url)
         if not response.ok:
             raise NautaLogoutException(
@@ -270,6 +272,20 @@ class NautaProtocol(object):
 
         return credit_tag.get_text().strip()
 
+    @classmethod
+    def checkIfProcessRunning(cls, processName):
+        '''
+        Chequea si existe algun proceso con el nombre processName.
+        '''
+        #Iterar la lista de todos los procesos
+        for proc in psutil.process_iter():
+            try:
+                # Chequea si el nombre del proceso contiene la cadena a buscar
+                if processName.lower() in proc.name().lower():
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return False;
 
 class NautaClient(object):
     def __init__(self, user, password):
@@ -337,6 +353,10 @@ class NautaClient(object):
     def logout(self):
         for i in range(0, MAX_DISCONNECT_ATTEMPTS):
             try:
+                #Voy a chequear si tengo openvpn ejecutando antes del logout
+                if NautaProtocol.checkIfProcessRunning('openvpn'):
+                    print('Está ejecutando openvpn, voy a cerrarlo')
+                    subprocess.run(('sudo', 'kill_openvpn.sh'))
                 NautaProtocol.logout(
                     session=self.session,
                     username=self.user,
