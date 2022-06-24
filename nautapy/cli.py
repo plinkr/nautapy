@@ -14,6 +14,7 @@ from nautapy.__about__ import __cli__ as prog_name, __version__ as version
 from nautapy import appdata_path
 
 from base64 import b85encode, b85decode
+from datetime import datetime
 
 
 USERS_DB = os.path.join(appdata_path, "users.db")
@@ -137,12 +138,12 @@ def up(args):
 
     if args.batch:
         client.login()
-        print("[Sesión iniciada]")
+        print("[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p")))
         print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
     else:
         with client.login():
             login_time = int(time.time())
-            print("[Sesión iniciada]")
+            print("[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p")))
             print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
             print(
                 "Presione Ctrl+C para desconectarse, o ejecute '{} down' desde otro terminal".format(
@@ -182,9 +183,8 @@ def up(args):
                 print("\n\nCerrando sesión ...")
                 print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
 
-
-            
-        print("Sesión cerrada con éxito.")
+ 
+        print("Sesión cerrada con éxito: {}".format(datetime.now().strftime("%I:%M:%S %p")))
         #print("Crédito: {}".format(
         #    utils.val_or_error(lambda: client.user_credit)
         #))
