@@ -150,7 +150,13 @@ def up(args):
                     prog_name
                 )
             )
-
+            if args.session_time:
+                if args.session_time.lower().endswith('h'):
+                    args.session_time = int(args.session_time[:-1]) * 3600
+                elif args.session_time.lower().endswith('m'):
+                    args.session_time = int(args.session_time[:-1]) * 60
+                else:
+                    args.session_time = int(args.session_time)
             try:
                 while True:
                     if not client.is_logged_in:
@@ -289,7 +295,7 @@ def main():
     # loggin parser
     up_parser = subparsers.add_parser("up")
     up_parser.set_defaults(func=up)
-    up_parser.add_argument("-t", "--session-time", action="store", default=None, type=int, help="Tiempo de desconexión en segundos")
+    up_parser.add_argument("-t", "--session-time", action="store", default=None, type=str, help="Tiempo de desconexión en segundos por defecto, se pueden usar modificadores 'h' y 'm' para horas y minutos, por ejemplo: '1h' o '10m'")
     up_parser.add_argument("-b", "--batch", action="store_true", default=False, help="Ejecutar en modo no interactivo")
     up_parser.add_argument("user", nargs="?", help="Usuario Nauta")
     up_parser.add_argument("password", nargs="?", help="Password del usuario Nauta")
