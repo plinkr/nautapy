@@ -39,18 +39,27 @@ Se muestra el tiempo en el terminal, para cerrar la sesión se debe pulsar `Ctrl
 
 * Opcionalmente puede especificar la duración máxima para la sesión, luego de la cual se desconecta automáticamente:
     
+    El siguiente ejemplo mantiene abierta la sesión durante un minuto (la unidad de tiempo por defecto son segundos):
     ```bash
     nauta up --session-time 60 periquito
     ```
     
-    El ejemplo anterior mantiene abierta la sesión durante un minuto.
+    También puede especificar el tiempo en horas (h) o minutos (m) para el tiempo de conexión:
+    ```bash
+    nauta up -t 1h
+    ```
+    
+    Y en minutos:
+    ```bash
+    nauta up -t 30m
+    ```
 
 __Sin especificar el usuario__
 
 ```bash
 nauta up
 ```
-Se utiza el usuario predeterminado o el primero que se encuentre en la base de datos.
+Se utiliza el usuario predeterminado o el primero que se encuentre en la base de datos.
 
 
 #### Ejecutar un comando con conexión
