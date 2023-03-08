@@ -49,11 +49,11 @@ def _get_default_user():
 
 def _find_credentials(user, default_password=None):
     cursor, _ = users_db_connect()
-    cursor.execute("SELECT * FROM users WHERE user LIKE ?", (user + '%',))
+    cursor.execute("SELECT * FROM users WHERE user LIKE ?", (user + "%",))
 
     rec = cursor.fetchone()
     if rec:
-        return rec[0], b85decode(rec[1]).decode('utf-8')
+        return rec[0], b85decode(rec[1]).decode("utf-8")
     else:
         return user, default_password
 
@@ -62,7 +62,10 @@ def add_user(args):
     password = args.password or getpass("Contraseña para {}: ".format(args.user))
 
     cursor, connection = users_db_connect()
-    cursor.execute("INSERT INTO users VALUES (?, ?)", (args.user, b85encode(password.encode('utf-8'))))
+    cursor.execute(
+        "INSERT INTO users VALUES (?, ?)",
+        (args.user, b85encode(password.encode("utf-8"))),
+    )
     connection.commit()
 
     print("Usuario guardado: {}".format(args.user))
@@ -95,7 +98,10 @@ def set_password(args):
     password = args.password or getpass("Contraseña para {}: ".format(args.user))
 
     cursor, connection = users_db_connect()
-    cursor.execute("UPDATE users SET password=? WHERE user=?", (b85encode(password.encode('utf-8')), args.user))
+    cursor.execute(
+        "UPDATE users SET password=? WHERE user=?",
+        (b85encode(password.encode("utf-8")), args.user),
+    )
 
     connection.commit()
 
@@ -116,10 +122,8 @@ def _get_credentials(args):
     if not user:
         print(
             "No existe ningún usuario. Debe crear uno. "
-            "Ejecute '{} --help' para más ayuda".format(
-                prog_name
-            ),
-            file=sys.stderr
+            "Ejecute '{} --help' para más ayuda".format(prog_name),
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -139,21 +143,31 @@ def up(args):
     if args.batch:
         client.login()
         print("[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p")))
-        print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
+        print(
+            "Tiempo restante: {}".format(
+                utils.val_or_error(lambda: client.remaining_time)
+            )
+        )
     else:
         with client.login():
             login_time = int(time.time())
-            print("[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p")))
-            print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
+            print(
+                "[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p"))
+            )
+            print(
+                "Tiempo restante: {}".format(
+                    utils.val_or_error(lambda: client.remaining_time)
+                )
+            )
             print(
                 "Presione Ctrl+C para desconectarse, o ejecute '{} down' desde otro terminal".format(
                     prog_name
                 )
             )
             if args.session_time:
-                if args.session_time.lower().endswith('h'):
+                if args.session_time.lower().endswith("h"):
                     args.session_time = int(args.session_time[:-1]) * 3600
-                elif args.session_time.lower().endswith('m'):
+                elif args.session_time.lower().endswith("m"):
                     args.session_time = int(args.session_time[:-1]) * 60
                 else:
                     args.session_time = int(args.session_time)
@@ -168,7 +182,7 @@ def up(args):
                         "\rTiempo de conexión: {}".format(
                             utils.seconds2strtime(elapsed)
                         ),
-                        end=""
+                        end="",
                     )
 
                     if args.session_time:
@@ -179,7 +193,7 @@ def up(args):
                             " La sesión se cerrará en {}".format(
                                 utils.seconds2strtime(args.session_time - elapsed)
                             ),
-                            end=""
+                            end="",
                         )
 
                     time.sleep(1)
@@ -187,17 +201,24 @@ def up(args):
                 pass
             finally:
                 print("\n\nCerrando sesión ...")
-                #Voy a chequear si tengo openvpn ejecutando antes del logout
-                if NautaProtocol.checkIfProcessRunning('openvpn'):
-                    print('Está ejecutando openvpn, voy a cerrarlo')
-                    subprocess.run(('sudo', 'kill_openvpn.sh'))
-                print("Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time)))
+                # Voy a chequear si tengo openvpn ejecutando antes del logout
+                if NautaProtocol.checkIfProcessRunning("openvpn"):
+                    print("Está ejecutando openvpn, voy a cerrarlo")
+                    subprocess.run(("sudo", "kill_openvpn.sh"))
+                print(
+                    "Tiempo restante: {}".format(
+                        utils.val_or_error(lambda: client.remaining_time)
+                    )
+                )
 
- 
-        print("Sesión cerrada con éxito: {}".format(datetime.now().strftime("%I:%M:%S %p")))
-        #print("Crédito: {}".format(
+        print(
+            "Sesión cerrada con éxito: {}".format(
+                datetime.now().strftime("%I:%M:%S %p")
+            )
+        )
+        # print("Crédito: {}".format(
         #    utils.val_or_error(lambda: client.user_credit)
-        #))
+        # ))
 
 
 def down(args):
@@ -215,17 +236,11 @@ def down(args):
 def is_logged_in(args):
     client = NautaClient(user=None, password=None)
 
-    print("Sesión activa: {}".format(
-        "Sí" if client.is_logged_in
-        else "No"
-    ))
+    print("Sesión activa: {}".format("Sí" if client.is_logged_in else "No"))
 
 
 def is_online(args):
-    print("Online: {}".format(
-        "Sí" if NautaProtocol.is_connected()
-        else "No"
-    ))
+    print("Online: {}".format("Sí" if NautaProtocol.is_connected() else "No"))
 
 
 def info(args):
@@ -236,12 +251,12 @@ def info(args):
         client.load_last_session()
 
     print("Usuario Nauta: {}".format(user))
-    print("Tiempo restante: {}".format(
-        utils.val_or_error(lambda: client.remaining_time)
-    ))
-    #print("Crédito: {}".format(
+    print(
+        "Tiempo restante: {}".format(utils.val_or_error(lambda: client.remaining_time))
+    )
+    # print("Crédito: {}".format(
     #    utils.val_or_error(lambda: client.user_credit)
-    #))
+    # ))
 
 
 def run_connected(args):
@@ -260,7 +275,9 @@ def create_user_subparsers(subparsers):
     user_add_parser = user_subparsers.add_parser("add")
     user_add_parser.set_defaults(func=add_user)
     user_add_parser.add_argument("user", help="Usuario Nauta")
-    user_add_parser.add_argument("password", nargs="?", help="Password del usuario Nauta")
+    user_add_parser.add_argument(
+        "password", nargs="?", help="Password del usuario Nauta"
+    )
 
     # Set default user
     user_set_default_parser = user_subparsers.add_parser("set-default")
@@ -271,7 +288,9 @@ def create_user_subparsers(subparsers):
     user_set_password_parser = user_subparsers.add_parser("set-password")
     user_set_password_parser.set_defaults(func=set_password)
     user_set_password_parser.add_argument("user", help="Usuario Nauta")
-    user_set_password_parser.add_argument("password", nargs="?", help="Password del usuario Nauta")
+    user_set_password_parser.add_argument(
+        "password", nargs="?", help="Password del usuario Nauta"
+    )
 
     # Remove user
     user_remove_parser = user_subparsers.add_parser("remove")
@@ -284,7 +303,9 @@ def create_user_subparsers(subparsers):
 
 def main():
     parser = argparse.ArgumentParser(prog=prog_name)
-    parser.add_argument("--version", action="version", version="{} v{}".format(prog_name, version))
+    parser.add_argument(
+        "--version", action="version", version="{} v{}".format(prog_name, version)
+    )
     parser.add_argument("-d", "--debug", action="store_true", help="show debug info")
 
     subparsers = parser.add_subparsers()
@@ -295,8 +316,21 @@ def main():
     # loggin parser
     up_parser = subparsers.add_parser("up")
     up_parser.set_defaults(func=up)
-    up_parser.add_argument("-t", "--session-time", action="store", default=None, type=str, help="Tiempo de desconexión en segundos por defecto, se pueden usar modificadores 'h' y 'm' para horas y minutos, por ejemplo: '1h' o '10m'")
-    up_parser.add_argument("-b", "--batch", action="store_true", default=False, help="Ejecutar en modo no interactivo")
+    up_parser.add_argument(
+        "-t",
+        "--session-time",
+        action="store",
+        default=None,
+        type=str,
+        help="Tiempo de desconexión en segundos por defecto, se pueden usar modificadores 'h' y 'm' para horas y minutos, por ejemplo: '1h' o '10m'",
+    )
+    up_parser.add_argument(
+        "-b",
+        "--batch",
+        action="store_true",
+        default=False,
+        help="Ejecutar en modo no interactivo",
+    )
     up_parser.add_argument("user", nargs="?", help="Usuario Nauta")
     up_parser.add_argument("password", nargs="?", help="Password del usuario Nauta")
 
@@ -321,9 +355,15 @@ def main():
     # Run connected parser
     run_connected_parser = subparsers.add_parser("run-connected")
     run_connected_parser.set_defaults(func=run_connected)
-    run_connected_parser.add_argument("-u", "--user", required=False, help="Usuario Nauta")
-    run_connected_parser.add_argument("-p", "--password", required=False, help="Password del usuario Nauta")
-    run_connected_parser.add_argument("cmd", nargs=argparse.REMAINDER, help="The command line to run")
+    run_connected_parser.add_argument(
+        "-u", "--user", required=False, help="Usuario Nauta"
+    )
+    run_connected_parser.add_argument(
+        "-p", "--password", required=False, help="Password del usuario Nauta"
+    )
+    run_connected_parser.add_argument(
+        "cmd", nargs=argparse.REMAINDER, help="The command line to run"
+    )
 
     args = parser.parse_args()
     if "func" not in args:
@@ -335,5 +375,6 @@ def main():
     except NautaException as ex:
         print(ex.args[0], file=sys.stderr)
     except RequestException:
-        print("Hubo un problema en la red, por favor revise su conexión", file=sys.stderr)
-
+        print(
+            "Hubo un problema en la red, por favor revise su conexión", file=sys.stderr
+        )

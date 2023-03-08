@@ -16,4 +16,3 @@ class NautaLoginException(NautaException):
 
 class NautaLogoutException(NautaException):
     pass
-

@@ -35,20 +35,27 @@ import subprocess
 
 from nautapy import appdata_path
 from nautapy.__about__ import __name__ as prog_name
-from nautapy.exceptions import NautaLoginException, NautaLogoutException, NautaException, NautaPreLoginException
+from nautapy.exceptions import (
+    NautaLoginException,
+    NautaLogoutException,
+    NautaException,
+    NautaPreLoginException,
+)
 
 MAX_DISCONNECT_ATTEMPTS = 10
 
 CHECK_PAGE = "http://www.cubadebate.cu/"
 
 LOGIN_DOMAIN = b"secure.etecsa.net"
-#_re_login_fail_reason = re.compile("alert\(\"(?P<reason>[^\"]*?)\"\)")
+# _re_login_fail_reason = re.compile("alert\(\"(?P<reason>[^\"]*?)\"\)")
 
 NAUTA_SESSION_FILE = os.path.join(appdata_path, "nauta-session")
 
 
 class SessionObject(object):
-    def __init__(self, login_action=None, csrfhw=None, wlanuserip=None, attribute_uuid=None):
+    def __init__(
+        self, login_action=None, csrfhw=None, wlanuserip=None, attribute_uuid=None
+    ):
         self.requests_session = self.__class__._create_requests_session()
 
         self.login_action = login_action
@@ -77,10 +84,8 @@ class SessionObject(object):
         inst = object.__new__(cls)
         inst.requests_session = cls._create_requests_session()
 
-        with open(NAUTA_SESSION_FILE, 'r') as fp:
-            inst.__dict__.update(
-                json.load(fp)
-            )
+        with open(NAUTA_SESSION_FILE, "r") as fp:
+            inst.__dict__.update(json.load(fp))
 
         return inst
 
@@ -105,6 +110,7 @@ class NautaProtocol(object):
     use this instead of directly talk with nauta server
 
     """
+
     @classmethod
     def _get_inputs(cls, form_soup):
         return {
@@ -116,10 +122,10 @@ class NautaProtocol(object):
     def is_connected(cls):
         try:
             r = requests.get(CHECK_PAGE, timeout=3)
-            return LOGIN_DOMAIN not in r.content;
+            return LOGIN_DOMAIN not in r.content
         except (requests.ConnectionError, requests.Timeout) as exception:
-            return False;
-        #return LOGIN_DOMAIN not in r.content
+            return False
+        # return LOGIN_DOMAIN not in r.content
 
     @classmethod
     def create_session(cls):
@@ -130,26 +136,26 @@ class NautaProtocol(object):
                 raise NautaPreLoginException("Hay una conexión activa")
 
         session = SessionObject()
-        #resp = session.requests_session.get(CHECK_PAGE, allow_redirects=True)
+        # resp = session.requests_session.get(CHECK_PAGE, allow_redirects=True)
         resp = session.requests_session.get("https://secure.etecsa.net:8443")
         if not resp.ok:
             raise NautaPreLoginException("Failed to create session")
 
-        soup = bs4.BeautifulSoup(resp.text, 'html.parser')
-        #action = soup.form["action"]
+        soup = bs4.BeautifulSoup(resp.text, "html.parser")
+        # action = soup.form["action"]
         action = "https://secure.etecsa.net:8443"
         data = cls._get_inputs(soup)
 
         # Now go to the login page
         resp = session.requests_session.post(action, data)
-        soup = bs4.BeautifulSoup(resp.text, 'html.parser')
+        soup = bs4.BeautifulSoup(resp.text, "html.parser")
         form_soup = soup.find("form", id="formulario")
 
         session.login_action = form_soup["action"]
         data = cls._get_inputs(form_soup)
 
-        session.csrfhw = data['CSRFHW']
-        session.wlanuserip = data['wlanuserip']
+        session.csrfhw = data["CSRFHW"]
+        session.wlanuserip = data["wlanuserip"]
 
         return session
 
@@ -161,63 +167,50 @@ class NautaProtocol(object):
                 "CSRFHW": session.csrfhw,
                 "wlanuserip": session.wlanuserip,
                 "username": username,
-                "password": password
-            }
+                "password": password,
+            },
         )
 
         if not r.ok:
             raise NautaLoginException(
-                "Falló el inicio de sesión: {} - {}".format(
-                    r.status_code,
-                    r.reason
-                )
+                "Falló el inicio de sesión: {} - {}".format(r.status_code, r.reason)
             )
 
         if not "online.do" in r.url:
             soup = bs4.BeautifulSoup(r.text, "html.parser")
             script_text = soup.find_all("script")[-1].get_text()
-            #match = _re_login_fail_reason.match(script_text)
-            match = re.search(r'alert\(\"(?P<reason>[^\"]*?)\"\)', script_text)
+            # match = _re_login_fail_reason.match(script_text)
+            match = re.search(r"alert\(\"(?P<reason>[^\"]*?)\"\)", script_text)
             raise NautaLoginException(
                 "Falló el inicio de sesión: {}".format(
                     match and match.groupdict().get("reason")
                 )
             )
 
-        m = re.search(r'ATTRIBUTE_UUID=(\w+)&CSRFHW=', r.text)
+        m = re.search(r"ATTRIBUTE_UUID=(\w+)&CSRFHW=", r.text)
 
-        return m.group(1) if m \
-            else None
+        return m.group(1) if m else None
 
     @classmethod
     def logout(cls, session, username):
-        logout_url = \
-            (
-                "https://secure.etecsa.net:8443/LogoutServlet?" +
-                "CSRFHW={}&" +
-                "username={}&" +
-                "ATTRIBUTE_UUID={}&" +
-                "wlanuserip={}"
-            ).format(
-                session.csrfhw,
-                username,
-                session.attribute_uuid,
-                session.wlanuserip
-            )
+        logout_url = (
+            "https://secure.etecsa.net:8443/LogoutServlet?"
+            + "CSRFHW={}&"
+            + "username={}&"
+            + "ATTRIBUTE_UUID={}&"
+            + "wlanuserip={}"
+        ).format(session.csrfhw, username, session.attribute_uuid, session.wlanuserip)
         response = session.requests_session.post(logout_url)
         if not response.ok:
             raise NautaLogoutException(
                 "Fallo al cerrar la sesión: {} - {}".format(
-                    response.status_code,
-                    response.reason
+                    response.status_code, response.reason
                 )
             )
 
         if "SUCCESS" not in response.text.upper():
             raise NautaLogoutException(
-                "Fallo al cerrar la sesión: {}".format(
-                    response.text[:100]
-                )
+                "Fallo al cerrar la sesión: {}".format(response.text[:100])
             )
 
     @classmethod
@@ -231,7 +224,7 @@ class NautaProtocol(object):
                 "CSRFHW": session.csrfhw,
                 "wlanuserip": session.wlanuserip,
                 "username": username,
-            }
+            },
         )
 
         return r.text
@@ -245,15 +238,14 @@ class NautaProtocol(object):
                 "CSRFHW": session.csrfhw,
                 "wlanuserip": session.wlanuserip,
                 "username": username,
-                "password": password
-            }
+                "password": password,
+            },
         )
 
         if not r.ok:
             raise NautaException(
                 "Fallo al obtener la información del usuario: {} - {}".format(
-                    r.status_code,
-                    r.reason
+                    r.status_code, r.reason
                 )
             )
 
@@ -263,7 +255,9 @@ class NautaProtocol(object):
             )
 
         soup = bs4.BeautifulSoup(r.text, "html.parser")
-        credit_tag = soup.select_one("#sessioninfo > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)")
+        credit_tag = soup.select_one(
+            "#sessioninfo > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)"
+        )
 
         if not credit_tag:
             raise NautaException(
@@ -274,10 +268,10 @@ class NautaProtocol(object):
 
     @classmethod
     def checkIfProcessRunning(cls, processName):
-        '''
+        """
         Chequea si existe algun proceso con el nombre processName.
-        '''
-        #Iterar la lista de todos los procesos
+        """
+        # Iterar la lista de todos los procesos
         for proc in psutil.process_iter():
             try:
                 # Chequea si el nombre del proceso contiene la cadena a buscar
@@ -285,7 +279,8 @@ class NautaProtocol(object):
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
-        return False;
+        return False
+
 
 class NautaClient(object):
     def __init__(self, user, password):
@@ -306,9 +301,7 @@ class NautaClient(object):
             self.init_session()
 
         self.session.attribute_uuid = NautaProtocol.login(
-            self.session,
-            self.user,
-            self.password
+            self.session, self.user, self.password
         )
 
         self.session.save(self.user)
@@ -324,9 +317,7 @@ class NautaClient(object):
                 self.init_session()
 
             return NautaProtocol.get_user_credit(
-                session=self.session,
-                username=self.user,
-                password=self.password
+                session=self.session, username=self.user, password=self.password
             )
         finally:
             if self.session and dispose_session:
@@ -353,10 +344,10 @@ class NautaClient(object):
     def logout(self):
         for i in range(0, MAX_DISCONNECT_ATTEMPTS):
             try:
-                #Voy a chequear si tengo openvpn ejecutando antes del logout
-                if NautaProtocol.checkIfProcessRunning('openvpn'):
-                    print('Está ejecutando openvpn, voy a cerrarlo')
-                    subprocess.run(('sudo', 'kill_openvpn.sh'))
+                # Voy a chequear si tengo openvpn ejecutando antes del logout
+                if NautaProtocol.checkIfProcessRunning("openvpn"):
+                    print("Está ejecutando openvpn, voy a cerrarlo")
+                    subprocess.run(("sudo", "kill_openvpn.sh"))
                 NautaProtocol.logout(
                     session=self.session,
                     username=self.user,
