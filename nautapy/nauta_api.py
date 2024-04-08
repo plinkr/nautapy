@@ -267,7 +267,7 @@ class NautaProtocol(object):
         return credit_tag.get_text().strip()
 
     @classmethod
-    def checkIfProcessRunning(cls, processName):
+    def check_if_process_running(cls, process_name):
         """
         Chequea si existe algun proceso con el nombre processName.
         """
@@ -275,7 +275,7 @@ class NautaProtocol(object):
         for proc in psutil.process_iter():
             try:
                 # Chequea si el nombre del proceso contiene la cadena a buscar
-                if processName.lower() in proc.name().lower():
+                if process_name.lower() in proc.name().lower():
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
@@ -342,28 +342,30 @@ class NautaClient(object):
                 self.session = None
 
     def logout(self):
-        for i in range(0, MAX_DISCONNECT_ATTEMPTS):
+        for _ in range(0, MAX_DISCONNECT_ATTEMPTS):
             try:
                 # Voy a chequear si tengo openvpn ejecutando antes del logout
-                if NautaProtocol.checkIfProcessRunning("openvpn"):
+                if NautaProtocol.check_if_process_running("openvpn"):
                     print("Está ejecutando openvpn, voy a cerrarlo")
                     subprocess.run(("sudo", "kill_openvpn.sh"))
                 NautaProtocol.logout(
                     session=self.session,
-                    username=self.user,
+                    username=self.user
                 )
                 self.session.dispose()
                 self.session = None
 
                 return
-            except RequestException:
-                time.sleep(1)
-
-        raise NautaLogoutException(
-            "Hay problemas en la red y no se puede cerrar la sessión.\n"
-            "Es posible que ya esté desconectado. Intente con '{} down' "
-            "dentro de unos minutos".format(prog_name)
-        )
+            except RequestException as e:
+                print("Error al intentar cerrar la sesión:", e)
+                print("Esperando 10 segundos antes de volver a intentar...")
+                time.sleep(10)
+        else:
+            raise NautaLogoutException(
+                "Hay problemas en la red y no se puede cerrar la sessión.\n"
+                "Es posible que ya esté desconectado. Intente con '{} down' "
+                "dentro de unos minutos".format(prog_name)
+            )
 
     def load_last_session(self):
         self.session = SessionObject.load()

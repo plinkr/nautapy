@@ -202,7 +202,7 @@ def up(args):
             finally:
                 print("\n\nCerrando sesión ...")
                 # Voy a chequear si tengo openvpn ejecutando antes del logout
-                if NautaProtocol.checkIfProcessRunning("openvpn"):
+                if NautaProtocol.check_if_process_running("openvpn"):
                     print("Está ejecutando openvpn, voy a cerrarlo")
                     subprocess.run(("sudo", "kill_openvpn.sh"))
                 print(
