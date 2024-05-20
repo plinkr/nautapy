@@ -15,6 +15,10 @@ Instalación:
 ```bash
 pip3 install --upgrade git+https://github.com/plinkr/nautapy.git
 ```
+Alternativamente usando `python-pipx` (Recomendado):
+```bash
+pipx install git+https://github.com/plinkr/nautapy.git
+```
 
 ## Modo de uso
 
