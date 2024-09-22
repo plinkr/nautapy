@@ -151,6 +151,7 @@ def save_logout(user):
             SELECT MAX(fecha_inicio_sesion)
             FROM connections
             WHERE user = ?
+            AND fecha_cierre_sesion IS NULL
         )
         """,
         (datetime.now(), user, user)
