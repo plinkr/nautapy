@@ -20,18 +20,17 @@ Example:
 
 """
 
-import json
-import re
-import os
-import time
 import http.cookiejar as cookielib
+import json
+import os
+import re
+import subprocess
+import time
 
 import bs4
+import psutil
 import requests
 from requests import RequestException
-
-import psutil
-import subprocess
 
 from nautapy import appdata_path
 from nautapy.__about__ import __name__ as prog_name
@@ -41,6 +40,7 @@ from nautapy.exceptions import (
     NautaException,
     NautaPreLoginException,
 )
+from nautapy.sqlite_utils import save_logout
 
 MAX_DISCONNECT_ATTEMPTS = 10
 
@@ -54,7 +54,7 @@ NAUTA_SESSION_FILE = os.path.join(appdata_path, "nauta-session")
 
 class SessionObject(object):
     def __init__(
-        self, login_action=None, csrfhw=None, wlanuserip=None, attribute_uuid=None
+            self, login_action=None, csrfhw=None, wlanuserip=None, attribute_uuid=None
     ):
         self.requests_session = self.__class__._create_requests_session()
 
@@ -194,11 +194,11 @@ class NautaProtocol(object):
     @classmethod
     def logout(cls, session, username):
         logout_url = (
-            "https://secure.etecsa.net:8443/LogoutServlet?"
-            + "CSRFHW={}&"
-            + "username={}&"
-            + "ATTRIBUTE_UUID={}&"
-            + "wlanuserip={}"
+                "https://secure.etecsa.net:8443/LogoutServlet?"
+                + "CSRFHW={}&"
+                + "username={}&"
+                + "ATTRIBUTE_UUID={}&"
+                + "wlanuserip={}"
         ).format(session.csrfhw, username, session.attribute_uuid, session.wlanuserip)
         response = session.requests_session.post(logout_url)
         if not response.ok:
@@ -376,3 +376,5 @@ class NautaClient(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if SessionObject.is_logged_in():
             self.logout()
+            # Guardo en la BD el usuario y la hora de cierre de sesión
+            save_logout(self.user)

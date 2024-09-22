@@ -90,7 +90,7 @@ Crédito: 1.12 CUC
 
 #### Determinar si hay conexión a internet
 
-```text
+```bash
 nauta is-online
 ```
 
@@ -101,7 +101,7 @@ Online: No
 
 #### Determinar si hay una sesión abierta
 
-```text
+```bash
 nauta is-logged-in
 ```
 
@@ -110,6 +110,38 @@ __Salida__:
 Sesión activa: No
 ```
     
+## Opciones adicionales
+
+### `--list-connections`
+
+Muestra una lista de todas las conexiones de todos los usuarios almacenadas en la base de datos.
+
+```bash
+nauta --list-connections
+```
+
+### `--resume-connections`
+
+Genera un resumen mensual de todas las conexiones, agrupadas por usuario, mostrando la cantidad total de horas conectadas en cada mes.
+
+```bash
+nauta --resume-connections
+```
+
+### Estas dos opciones anteriores se pueden combinar:
+
+```bash
+nauta --list-connections --resume-connections
+```
+
+### `--no-log`
+
+Evita que se registre la conexión actual en la base de datos.
+
+```bash
+nauta up -t 2h --no-log
+```
+
 # Más Información
 
 Lee la ayuda del módulo una vez instalado:
