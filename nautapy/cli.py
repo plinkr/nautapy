@@ -3,116 +3,17 @@ import os
 import subprocess
 import sys
 import time
-import sqlite3
-from getpass import getpass
+from collections import defaultdict
+from datetime import datetime
 
 from requests import RequestException
 
-from nautapy.exceptions import NautaException
-from nautapy.nauta_api import NautaClient, NautaProtocol
 from nautapy import utils
 from nautapy.__about__ import __cli__ as prog_name, __version__ as version
-from nautapy import appdata_path
-
-from base64 import b85encode, b85decode
-from datetime import datetime
-
-USERS_DB = os.path.join(appdata_path, "users.db")
-
-
-def users_db_connect():
-    conn = sqlite3.connect(USERS_DB)
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS users (user TEXT, password TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS default_user (user TEXT)")
-
-    conn.commit()
-    return cursor, conn
-
-
-def _get_default_user():
-    cursor, _ = users_db_connect()
-
-    # Search for explicit default value
-    cursor.execute("SELECT user FROM default_user LIMIT 1")
-    rec = cursor.fetchone()
-    if rec:
-        return rec[0]
-
-    # If no explicit value exists, find the first user
-    cursor.execute("SELECT * FROM users LIMIT 1")
-
-    rec = cursor.fetchone()
-    if rec:
-        return rec[0]
-
-
-def _find_credentials(user, default_password=None):
-    cursor, _ = users_db_connect()
-    cursor.execute("SELECT * FROM users WHERE user LIKE ?", (user + "%",))
-
-    rec = cursor.fetchone()
-    if rec:
-        return rec[0], b85decode(rec[1]).decode("utf-8")
-    else:
-        return user, default_password
-
-
-def add_user(args):
-    password = args.password or getpass("Contraseña para {}: ".format(args.user))
-
-    cursor, connection = users_db_connect()
-    cursor.execute(
-        "INSERT INTO users VALUES (?, ?)",
-        (args.user, b85encode(password.encode("utf-8"))),
-    )
-    connection.commit()
-
-    print("Usuario guardado: {}".format(args.user))
-
-
-def set_default_user(args):
-    cursor, connection = users_db_connect()
-    cursor.execute("SELECT count(user) FROM default_user")
-    res = cursor.fetchone()
-
-    if res[0]:
-        cursor.execute("UPDATE default_user SET user=?", (args.user,))
-    else:
-        cursor.execute("INSERT INTO default_user VALUES (?)", (args.user,))
-
-    connection.commit()
-
-    print("Usuario predeterminado: {}".format(args.user))
-
-
-def remove_user(args):
-    cursor, connection = users_db_connect()
-    cursor.execute("DELETE FROM users WHERE user=?", (args.user,))
-    connection.commit()
-
-    print("Usuario eliminado: {}".format(args.user))
-
-
-def set_password(args):
-    password = args.password or getpass("Contraseña para {}: ".format(args.user))
-
-    cursor, connection = users_db_connect()
-    cursor.execute(
-        "UPDATE users SET password=? WHERE user=?",
-        (b85encode(password.encode("utf-8")), args.user),
-    )
-
-    connection.commit()
-
-    print("Contraseña actualizada: {}".format(args.user))
-
-
-def list_users(args):
-    cursor, _ = users_db_connect()
-
-    for rec in cursor.execute("SELECT user FROM users"):
-        print(rec[0])
+from nautapy.exceptions import NautaException
+from nautapy.nauta_api import NautaClient, NautaProtocol
+from nautapy.sqlite_utils import _get_default_user, save_login, save_logout, add_user, set_default_user, set_password, \
+    remove_user, list_users, _find_credentials, list_connections
 
 
 def _get_credentials(args):
@@ -126,7 +27,6 @@ def _get_credentials(args):
             file=sys.stderr,
         )
         sys.exit(1)
-
     return _find_credentials(user=user, default_password=password)
 
 
@@ -151,6 +51,8 @@ def up(args):
     else:
         with client.login():
             login_time = int(time.time())
+            if not args.no_log:
+                save_login(client.user)
             print(
                 "[Sesión iniciada: {}]".format(datetime.now().strftime("%I:%M:%S %p"))
             )
@@ -228,6 +130,8 @@ def down(args):
         client.load_last_session()
         client.user = client.session.__dict__.get("username")
         client.logout()
+        if not args.no_log:
+            save_logout(client.user)
         print("Sesión cerrada con éxito")
     else:
         print("No hay ninguna sesión activa")
@@ -301,12 +205,149 @@ def create_user_subparsers(subparsers):
     user_list_parser.set_defaults(func=list_users)
 
 
+def list_connections_cli(args):
+    # Obtener las conexiones desde sqlite_utils
+    connections = list_connections(args)
+
+    # Asegurarse de que connections no sea None
+    if connections is None or len(connections) == 0:
+        print("No se encontraron conexiones.")
+        return
+
+    # Encabezados de la tabla
+    headers = ["Usuario", "Fecha inicio sesión", "Fecha cierre sesión"]
+
+    # Convertir las conexiones a listas para construir la tabla,
+    # y eliminar los milisegundos de las fechas
+    rows = [
+        [
+            connection[0],  # Usuario
+            connection[1].split(".")[0] if connection[1] else "N/A",  # Fecha inicio sin milisegundos
+            connection[2].split(".")[0] if connection[2] else "N/A"  # Fecha cierre sin milisegundos
+        ]
+        for connection in connections
+    ]
+
+    # Calcular los anchos de cada columna
+    col_widths = [
+        max(len(str(row[i])) for row in rows + [headers])  # ancho máximo de cada columna
+        for i in range(len(headers))
+    ]
+
+    # Función para formatear una fila
+    def format_row(row):
+        return "| " + " | ".join(str(row[i]).ljust(col_widths[i]) for i in range(len(row))) + " |"
+
+    # Separador
+    separator = "+" + "+".join("-" * (width + 2) for width in col_widths) + "+"
+    # Crear la tabla
+    table = [format_row(headers), separator]
+
+    # Agregar las filas con los datos
+    for row in rows:
+        table.append(format_row(row))
+        table.append(separator)
+
+    # Mostrar la tabla
+    print("\n".join(table))
+    # Si se pide el resumen, se muestra al final de la tabla
+    if args.resume_connections:
+        resume_connections(args)
+
+
+def resume_connections(args):
+    # Obtener las conexiones desde sqlite_utils
+    connections = list_connections(args)
+
+    # Asegurarse de que connections no sea None
+    if connections is None or len(connections) == 0:
+        print("No se encontraron conexiones.")
+        return
+
+    # Diccionario para acumular las horas por usuario y mes
+    user_hours_per_month = defaultdict(lambda: defaultdict(float))
+
+    # Procesar cada conexión
+    for connection in connections:
+        user = connection[0]
+        fecha_inicio = connection[1]
+        fecha_cierre = connection[2]
+
+        # Ignorar si no hay fecha de cierre o si está vacío
+        if not fecha_cierre or fecha_cierre.strip() == '':
+            continue
+
+        try:
+            # Convertir las fechas a objetos datetime
+            inicio_dt = datetime.strptime(fecha_inicio.split(".")[0], "%Y-%m-%d %H:%M:%S")
+            cierre_dt = datetime.strptime(fecha_cierre.split(".")[0], "%Y-%m-%d %H:%M:%S")
+
+            # Calcular la duración de la conexión en horas
+            duration = (cierre_dt - inicio_dt).total_seconds() / 3600.0
+
+            # Obtener el nombre del mes y año de la fecha de inicio en español
+            mes_anio = inicio_dt.strftime("%B %Y")
+
+            # Acumular la duración en horas para el usuario y mes correspondiente
+            user_hours_per_month[user][mes_anio] += duration
+
+        except ValueError as e:
+            print(f"Error al procesar las fechas para la conexión de {user}: {e}")
+            continue
+
+    # Mostrar el resumen de horas por usuario y mes
+    if not user_hours_per_month:
+        print("No se encontraron conexiones válidas.")
+    else:
+        # Cabecera de la tabla
+        headers = ["Usuario", "Mes", "Cantidad de horas"]
+
+        rows = [
+            [user, mes_anio.capitalize(), f"{horas:.2f} horas"]
+            for user, hours_per_month in user_hours_per_month.items()
+            for mes_anio, horas in sorted(hours_per_month.items())
+        ]
+
+        col_widths = [
+            max(len(str(row[i])) for row in rows + [headers])
+            for i in range(len(headers))
+        ]
+
+        def format_row(row):
+            return "| " + " | ".join(str(row[i]).ljust(col_widths[i]) for i in range(len(row))) + " |"
+
+        table = [format_row(headers)]
+        separator = "+" + "+".join("-" * (width + 2) for width in col_widths) + "+"
+        table.append(separator)
+
+        for row in rows:
+            table.append(format_row(row))
+            table.append(separator)
+
+        print("\n".join(table))
+
+
 def main():
     parser = argparse.ArgumentParser(prog=prog_name)
     parser.add_argument(
         "--version", action="version", version="{} v{}".format(prog_name, version)
     )
     parser.add_argument("-d", "--debug", action="store_true", help="show debug info")
+    # listar las conexiones de todos los usuarios
+    parser.add_argument(
+        "-lc",
+        "--list-connections",
+        action="store_true",
+        default=False,
+        help="Lista todas las conexiones de los usuarios")
+    # Resumen mensual de las conexiones por usuario
+    parser.add_argument(
+        "-rc",
+        "--resume-connections",
+        action="store_true",
+        default=False,
+        help="Hace un resumen mensual de todas las conexiones, por usuario",
+    )
 
     subparsers = parser.add_subparsers()
 
@@ -333,6 +374,13 @@ def main():
     )
     up_parser.add_argument("user", nargs="?", help="Usuario Nauta")
     up_parser.add_argument("password", nargs="?", help="Password del usuario Nauta")
+    up_parser.add_argument(
+        "-nl",
+        "--no-log",
+        action="store_true",
+        default=False,
+        help="No salvar en la BD el log de esta conexión",
+    )
 
     # Logout parser
     down_parser = subparsers.add_parser("down")
@@ -366,6 +414,17 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Muestra las conexiones de los usuarios en la BD
+    if args.list_connections:
+        list_connections_cli(args)
+        sys.exit(0)
+
+    # Muestra un resumen mensual de las conexiones
+    if args.resume_connections:
+        resume_connections(args)
+        sys.exit(0)
+
     if "func" not in args:
         parser.print_help()
         sys.exit(1)
@@ -374,7 +433,5 @@ def main():
         args.func(args)
     except NautaException as ex:
         print(ex.args[0], file=sys.stderr)
-    except RequestException:
-        print(
-            "Hubo un problema en la red, por favor revise su conexión", file=sys.stderr
-        )
+    except RequestException as ex:
+        print("Hubo un problema en la red, por favor revise su conexión:", ex, file=sys.stderr)
