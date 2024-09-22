@@ -1,9 +1,8 @@
-beautifulsoup4==4.8.1
-bs4==0.0.1
-certifi==2022.12.7
-chardet==3.0.4
-idna==2.8
-requests==2.27.1
-soupsieve==1.9.5
-urllib3==1.26.8
-psutil==5.9.8
+beautifulsoup4~=4.12.3
+certifi~=2024.8.30
+chardet~=5.2.0
+idna~=3.10
+requests~=2.32.3
+soupsieve~=2.6
+urllib3==1.26.8 # no se puede actualizar: https://github.com/urllib3/urllib3/issues/3100
+psutil~=6.0.0
