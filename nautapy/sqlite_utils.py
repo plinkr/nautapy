@@ -151,6 +151,7 @@ def save_logout(user):
             SELECT MAX(fecha_inicio_sesion)
             FROM connections
             WHERE user = ?
+            AND fecha_cierre_sesion IS NULL
         )
         """,
         (datetime.now(), user, user)
@@ -174,6 +175,82 @@ def list_connections(args):
         FROM connections
         ORDER BY fecha_inicio_sesion
         """
+    )
+
+    # Obtener todos los registros y almacenarlos en una lista
+    connections = cursor.fetchall()
+
+    # Cerrar la conexión a la base de datos
+    conn.close()
+
+    # Devolver los registros obtenidos
+    return connections
+
+
+def list_connections_current_month(args):
+    # Asegurarse de que la base de datos de conexiones esté creada
+    create_connections_db()
+
+    # Conectarse a la base de datos
+    conn = sqlite3.connect(CONNECTIONS_DB)
+    cursor = conn.cursor()
+
+    # Obtener el mes y año actual
+    current_date = datetime.now()
+    current_month = current_date.month
+    current_year = current_date.year
+
+    # Ejecutar la consulta para obtener los datos de las conexiones del mes actual
+    cursor.execute(
+        """
+        SELECT user, fecha_inicio_sesion, fecha_cierre_sesion
+        FROM connections
+        WHERE strftime('%m', fecha_inicio_sesion) = ? AND strftime('%Y', fecha_inicio_sesion) = ?
+        ORDER BY fecha_inicio_sesion
+        """,
+        (f'{current_month:02}', str(current_year))
+    )
+
+    # Obtener todos los registros y almacenarlos en una lista
+    connections = cursor.fetchall()
+
+    # Cerrar la conexión a la base de datos
+    conn.close()
+
+    # Devolver los registros obtenidos
+    return connections
+
+
+def list_connections_last_month(args):
+    # Asegurarse de que la base de datos de conexiones esté creada
+    create_connections_db()
+
+    # Conectarse a la base de datos
+    conn = sqlite3.connect(CONNECTIONS_DB)
+    cursor = conn.cursor()
+
+    # Obtener el mes y año actual
+    current_date = datetime.now()
+    current_month = current_date.month
+    current_year = current_date.year
+
+    # Calcular el mes y año anterior
+    if current_month == 1:
+        past_month = 12
+        past_year = current_year - 1
+    else:
+        past_month = current_month - 1
+        past_year = current_year
+
+    # Ejecutar la consulta para obtener los datos de las conexiones del mes anterior
+    cursor.execute(
+        """
+        SELECT user, fecha_inicio_sesion, fecha_cierre_sesion
+        FROM connections
+        WHERE strftime('%m', fecha_inicio_sesion) = ? AND strftime('%Y', fecha_inicio_sesion) = ?
+        ORDER BY fecha_inicio_sesion
+        """,
+        (f'{past_month:02}', str(past_year))
     )
 
     # Obtener todos los registros y almacenarlos en una lista

@@ -112,34 +112,82 @@ Sesión activa: No
     
 ## Opciones adicionales
 
-### `--list-connections`
+### `--list-conn`, `-lc` 
 
-Muestra una lista de todas las conexiones de todos los usuarios almacenadas en la base de datos.
+Muestra una lista de las conexiones del mes actual de todos los usuarios almacenadas en la base de datos.
 
 ```bash
-nauta --list-connections
+nauta --list-conn
 ```
 
-### `--resume-connections`
+**Opciones de filtrado:**
+
+* **`--last-month`, `-lm`, :** Muestra solo las conexiones del mes anterior.
+* **`--all-conn`, `-ac`:** Muestra todas las conexiones, sin importar el mes.
+
+```bash
+# Mostrar conexiones del mes anterior:
+nauta --list-conn --last-month
+
+# Mostrar todas las conexiones:
+nauta --list-conn --all-conn
+```
+
+### `--resume-conn`, `-rc`
 
 Genera un resumen mensual de todas las conexiones, agrupadas por usuario, mostrando la cantidad total de horas conectadas en cada mes.
 
 ```bash
-nauta --resume-connections
+nauta --resume-conn
 ```
 
-### Estas dos opciones anteriores se pueden combinar:
+### Combinando opciones
+
+Puedes combinar las opciones para obtener resultados más específicos. Por ejemplo:
 
 ```bash
-nauta --list-connections --resume-connections
+# Mostrar un resumen mensual y todas las conexiones
+nauta -rc -lc -ac
 ```
 
-### `--no-log`
+```bash
+# Mostrar las conexiones del mes pasado
+nauta -lc -lm
+```
 
-Evita que se registre la conexión actual en la base de datos.
+**Nota:** Las opciones `--last-month` y `--all-conn` solo afectan al comando `--list-conn`.
+
+**Explicación detallada:**
+
+* **`--last-month`:** Esta opción permite filtrar las conexiones y mostrar solo aquellas que ocurrieron en el mes anterior.
+* **`--all-conn`:** Con esta opción, se mostrarán todas las conexiones almacenadas en la base de datos, sin aplicar ningún filtro por fecha.
+
+**Ejemplo de uso completo:**
+
+```bash
+nauta --list-conn --last-month --resume-conn
+```
+
+Este comando mostrará:
+
+1. Una lista de todas las conexiones del mes anterior.
+2. Un resumen mensual de todas las conexiones.
+
+**Consideraciones adicionales:**
+
+* **Orden de las opciones:** El orden de las opciones no suele importar.
+* **Opciones mutuamente excluyentes:** En este caso, no hay opciones mutuamente excluyentes. Puedes combinarlas como quieras.
+
+### `--no-log`, `-nl`
+
+Evita que se registre la conexión actual en la base de datos:
 
 ```bash
 nauta up -t 2h --no-log
+```
+de la misma manera usando opciones cortas:
+```bash
+nauta up -t 2h -nl
 ```
 
 # Más Información

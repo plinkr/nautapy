@@ -13,7 +13,8 @@ from nautapy.__about__ import __cli__ as prog_name, __version__ as version
 from nautapy.exceptions import NautaException
 from nautapy.nauta_api import NautaClient, NautaProtocol
 from nautapy.sqlite_utils import _get_default_user, save_login, save_logout, add_user, set_default_user, set_password, \
-    remove_user, list_users, _find_credentials, list_connections
+    remove_user, list_users, _find_credentials, list_connections, list_connections_current_month, \
+    list_connections_last_month
 
 
 def _get_credentials(args):
@@ -206,8 +207,15 @@ def create_user_subparsers(subparsers):
 
 
 def list_connections_cli(args):
-    # Obtener las conexiones desde sqlite_utils
-    connections = list_connections(args)
+    if args.last_month:
+        # Obtener las conexiones desde sqlite_utils, las del mes pasado
+        connections = list_connections_last_month(args)
+    elif args.all_conn:
+        # Obtener las conexiones desde sqlite_utils, todas las conexiones
+        connections = list_connections(args)
+    else:
+        # Obtener las conexiones desde sqlite_utils, por defecto las del mes actual
+        connections = list_connections_current_month(args)
 
     # Asegurarse de que connections no sea None
     if connections is None or len(connections) == 0:
@@ -251,7 +259,7 @@ def list_connections_cli(args):
     # Mostrar la tabla
     print("\n".join(table))
     # Si se pide el resumen, se muestra al final de la tabla
-    if args.resume_connections:
+    if args.resume_conn:
         resume_connections(args)
 
 
@@ -302,11 +310,18 @@ def resume_connections(args):
         # Cabecera de la tabla
         headers = ["Usuario", "Mes", "Cantidad de horas"]
 
-        rows = [
-            [user, mes_anio.capitalize(), f"{horas:.2f} horas"]
-            for user, hours_per_month in user_hours_per_month.items()
-            for mes_anio, horas in sorted(hours_per_month.items())
-        ]
+        rows = []
+        for user, hours_per_month in user_hours_per_month.items():
+            for mes_anio, horas in sorted(hours_per_month.items()):
+                horas_int = int(horas)
+                minutos = int((horas - horas_int) * 60)
+                if horas_int == 0:
+                    horas_str = f"{minutos} minutos"
+                elif minutos == 0:
+                    horas_str = f"{horas_int} horas"
+                else:
+                    horas_str = f"{horas_int} hora{'s' if horas_int > 1 else ''} {minutos} minuto{'s' if minutos > 1 else ''}"
+                rows.append([user, mes_anio.capitalize(), horas_str])
 
         col_widths = [
             max(len(str(row[i])) for row in rows + [headers])
@@ -333,17 +348,33 @@ def main():
         "--version", action="version", version="{} v{}".format(prog_name, version)
     )
     parser.add_argument("-d", "--debug", action="store_true", help="show debug info")
-    # listar las conexiones de todos los usuarios
+    # listar las conexiones de todos los usuarios, solo las del mes actual
     parser.add_argument(
         "-lc",
-        "--list-connections",
+        "--list-conn",
         action="store_true",
         default=False,
-        help="Lista todas las conexiones de los usuarios")
+        help="Lista las conexiones del mes actual de los usuarios")
+    # Solo muestra las conexiones del mes pasado
+    parser.add_argument(
+        "-lm",
+        "--last-month",
+        action="store_true",
+        default=False,
+        help="Lista las conexiones del mes anterior"
+    )
+    # Muestra todas las conexiones
+    parser.add_argument(
+        "-ac",
+        "--all-conn",
+        action="store_true",
+        default=False,
+        help="Lista todas las conexiones de los usuarios"
+    )
     # Resumen mensual de las conexiones por usuario
     parser.add_argument(
         "-rc",
-        "--resume-connections",
+        "--resume-conn",
         action="store_true",
         default=False,
         help="Hace un resumen mensual de todas las conexiones, por usuario",
@@ -415,13 +446,21 @@ def main():
 
     args = parser.parse_args()
 
+    # Chequeo que usen --last-month con --list-connections
+    if args.last_month and not args.list_conn:
+        parser.error("--last-month requiere --list-conn")
+
+    # Chequeo que usen --all-conn con --list-conn
+    if args.all_conn and not args.list_conn:
+        parser.error("--all-conn requiere --list-conn")
+
     # Muestra las conexiones de los usuarios en la BD
-    if args.list_connections:
+    if args.list_conn:
         list_connections_cli(args)
         sys.exit(0)
 
     # Muestra un resumen mensual de las conexiones
-    if args.resume_connections:
+    if args.resume_conn:
         resume_connections(args)
         sys.exit(0)
 
