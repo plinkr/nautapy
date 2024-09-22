@@ -302,11 +302,18 @@ def resume_connections(args):
         # Cabecera de la tabla
         headers = ["Usuario", "Mes", "Cantidad de horas"]
 
-        rows = [
-            [user, mes_anio.capitalize(), f"{horas:.2f} horas"]
-            for user, hours_per_month in user_hours_per_month.items()
-            for mes_anio, horas in sorted(hours_per_month.items())
-        ]
+        rows = []
+        for user, hours_per_month in user_hours_per_month.items():
+            for mes_anio, horas in sorted(hours_per_month.items()):
+                horas_int = int(horas)
+                minutos = int((horas - horas_int) * 60)
+                if horas_int == 0:
+                    horas_str = f"{minutos} minutos"
+                elif minutos == 0:
+                    horas_str = f"{horas_int} horas"
+                else:
+                    horas_str = f"{horas_int} hora{'s' if horas_int > 1 else ''} {minutos} minuto{'s' if minutos > 1 else ''}"
+                rows.append([user, mes_anio.capitalize(), horas_str])
 
         col_widths = [
             max(len(str(row[i])) for row in rows + [headers])
