@@ -131,8 +131,7 @@ def down(args):
         client.load_last_session()
         client.user = client.session.__dict__.get("username")
         client.logout()
-        if not args.no_log:
-            save_logout(client.user)
+        save_logout(client.user)
         print("Sesión cerrada con éxito")
     else:
         print("No hay ninguna sesión activa")
