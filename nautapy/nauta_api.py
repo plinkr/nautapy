@@ -201,17 +201,35 @@ class NautaProtocol(object):
                 + "wlanuserip={}"
         ).format(session.csrfhw, username, session.attribute_uuid, session.wlanuserip)
         response = session.requests_session.post(logout_url)
-        if not response.ok:
-            raise NautaLogoutException(
-                "Fallo al cerrar la sesión: {} - {}".format(
+        cls._handle_logout_errors(response, username)
+
+    @staticmethod
+    def _handle_logout_errors(response, username):
+        """
+        Si hay errores en el logout, los trato aquí
+
+        Args:
+            response (requests.Response): La respuesta de la petición de cierre de sesión.
+            username: El usuario al que se está cerrando sesión.
+        """
+        error_message = None
+
+        try:
+            if not response.ok:
+                error_message = "Fallo al cerrar la sesión: {} - {}".format(
                     response.status_code, response.reason
                 )
-            )
 
-        if "SUCCESS" not in response.text.upper():
-            raise NautaLogoutException(
-                "Fallo al cerrar la sesión: {}".format(response.text[:100])
-            )
+            if "SUCCESS" not in response.text.upper():
+                error_message = "Fallo al cerrar la sesión: {}".format(response.text[:100])
+
+            if error_message:
+                raise NautaLogoutException(error_message)
+
+        finally:
+            # Guardo en la BD el usuario y la hora de cierre de sesión
+            # Cierra la entrada en la BD aunque hayan errores
+            save_logout(username)
 
     @classmethod
     def get_user_time(cls, session, username):
@@ -342,30 +360,36 @@ class NautaClient(object):
                 self.session = None
 
     def logout(self):
-        for _ in range(0, MAX_DISCONNECT_ATTEMPTS):
-            try:
-                # Voy a chequear si tengo openvpn ejecutando antes del logout
-                if NautaProtocol.check_if_process_running("openvpn"):
-                    print("Está ejecutando openvpn, voy a cerrarlo")
-                    subprocess.run(("sudo", "kill_openvpn.sh"))
-                NautaProtocol.logout(
-                    session=self.session,
-                    username=self.user
-                )
-                self.session.dispose()
-                self.session = None
+        try:
+            for _ in range(0, MAX_DISCONNECT_ATTEMPTS):
+                try:
+                    # Voy a chequear si tengo openvpn ejecutando antes del logout
+                    if NautaProtocol.check_if_process_running("openvpn"):
+                        print("Está ejecutando openvpn, voy a cerrarlo")
+                        subprocess.run(("sudo", "kill_openvpn.sh"))
 
-                return
-            except RequestException as e:
-                print("Error al intentar cerrar la sesión:", e)
-                print("Esperando 10 segundos antes de volver a intentar...")
-                time.sleep(10)
-        else:
-            raise NautaLogoutException(
-                "Hay problemas en la red y no se puede cerrar la sessión.\n"
-                "Es posible que ya esté desconectado. Intente con '{} down' "
-                "dentro de unos minutos".format(prog_name)
-            )
+                    NautaProtocol.logout(
+                        session=self.session,
+                        username=self.user
+                    )
+                    self.session.dispose()
+                    self.session = None
+
+                    return  # Si el logout es exitoso, se sale del método
+                except RequestException as e:
+                    print("Error al intentar cerrar la sesión:", e)
+                    print("Esperando 10 segundos antes de volver a intentar...")
+                    time.sleep(10)
+            else:
+                raise NautaLogoutException(
+                    "Hay problemas en la red y no se puede cerrar la sesión.\n"
+                    "Es posible que ya esté desconectado. Intente con '{} down' "
+                    "dentro de unos minutos".format(prog_name)
+                )
+        finally:
+            # Guardo en la BD el usuario y la hora de cierre de sesión
+            # Cierra la entrada en la BD sin importar si hubo excepciones o no
+            save_logout(self.user)
 
     def load_last_session(self):
         self.session = SessionObject.load()
@@ -376,5 +400,3 @@ class NautaClient(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if SessionObject.is_logged_in():
             self.logout()
-            # Guardo en la BD el usuario y la hora de cierre de sesión
-            save_logout(self.user)

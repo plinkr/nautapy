@@ -12,7 +12,7 @@ from nautapy import utils
 from nautapy.__about__ import __cli__ as prog_name, __version__ as version
 from nautapy.exceptions import NautaException
 from nautapy.nauta_api import NautaClient, NautaProtocol
-from nautapy.sqlite_utils import _get_default_user, save_login, save_logout, add_user, set_default_user, set_password, \
+from nautapy.sqlite_utils import _get_default_user, save_login, add_user, set_default_user, set_password, \
     remove_user, list_users, _find_credentials, list_connections, list_connections_current_month, \
     list_connections_last_month
 
@@ -131,7 +131,6 @@ def down(args):
         client.load_last_session()
         client.user = client.session.__dict__.get("username")
         client.logout()
-        save_logout(client.user)
         print("Sesión cerrada con éxito")
     else:
         print("No hay ninguna sesión activa")
