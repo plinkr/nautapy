@@ -272,6 +272,8 @@ def resume_connections(args):
 
     # Diccionario para acumular las horas por usuario y mes
     user_hours_per_month = defaultdict(lambda: defaultdict(float))
+    # Diccionario para guardar la fecha de referencia de cada mes
+    month_date_reference = {}
 
     # Procesar cada conexión
     for connection in connections:
@@ -291,8 +293,12 @@ def resume_connections(args):
             # Calcular la duración de la conexión en horas
             duration = (cierre_dt - inicio_dt).total_seconds() / 3600.0
 
-            # Obtener el nombre del mes y año de la fecha de inicio en español
+            # Obtener el nombre del mes y año de la fecha de inicio
             mes_anio = inicio_dt.strftime("%B %Y")
+            
+            # Guardar la fecha de referencia para ordenar (primer día del mes)
+            if mes_anio not in month_date_reference:
+                month_date_reference[mes_anio] = inicio_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
             # Acumular la duración en horas para el usuario y mes correspondiente
             user_hours_per_month[user][mes_anio] += duration
@@ -310,7 +316,9 @@ def resume_connections(args):
 
         rows = []
         for user, hours_per_month in user_hours_per_month.items():
-            for mes_anio, horas in sorted(hours_per_month.items()):
+            # Ordenar los meses cronológicamente, por order inverso, usando la fecha de referencia
+            for mes_anio, horas in sorted(hours_per_month.items(), key=lambda x: month_date_reference[x[0]],
+                                          reverse=True):
                 horas_int = int(horas)
                 minutos = int((horas - horas_int) * 60)
                 if horas_int == 0:
