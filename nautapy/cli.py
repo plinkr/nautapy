@@ -108,6 +108,12 @@ def up(args):
                 if NautaProtocol.check_if_process_running("openvpn"):
                     print("Está ejecutando openvpn, voy a cerrarlo")
                     subprocess.run(("sudo", "kill_openvpn.sh"))
+
+                # Voy a chequear si tengo protonvpn conectado antes del logout
+                if NautaProtocol.check_if_protonvpn_running():
+                    print("Está ejecutando protonvpn, voy a desconectarlo")
+                    subprocess.run(("protonvpn", "disconnect"))
+
                 print(
                     "Tiempo restante: {}".format(
                         utils.val_or_error(lambda: client.remaining_time)
@@ -295,7 +301,7 @@ def resume_connections(args):
 
             # Obtener el nombre del mes y año de la fecha de inicio
             mes_anio = inicio_dt.strftime("%B %Y")
-            
+
             # Guardar la fecha de referencia para ordenar (primer día del mes)
             if mes_anio not in month_date_reference:
                 month_date_reference[mes_anio] = inicio_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

@@ -131,7 +131,7 @@ class NautaProtocol(object):
     def create_session(cls):
         if cls.is_connected():
             if SessionObject.is_logged_in():
-                raise NautaPreLoginException("Hay una sessión abierta")
+                raise NautaPreLoginException("Hay una sesión abierta")
             else:
                 raise NautaPreLoginException("Hay una conexión activa")
 
@@ -299,6 +299,25 @@ class NautaProtocol(object):
                 pass
         return False
 
+    @classmethod
+    def check_if_protonvpn_running(cls):
+        """
+        Chequea si existe una conexión activa de ProtonVPN mediante nmcli.
+        """
+        try:
+            output = subprocess.check_output(
+                ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"],
+                stderr=subprocess.STDOUT,
+                encoding="utf-8"
+            )
+            for line in output.splitlines():
+                # Ejemplo de línea: ProtonVPN ES#44:wireguard
+                if ":wireguard" in line and line.startswith("ProtonVPN"):
+                    return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        return False
+
 
 class NautaClient(object):
     def __init__(self, user, password):
@@ -367,6 +386,11 @@ class NautaClient(object):
                     if NautaProtocol.check_if_process_running("openvpn"):
                         print("Está ejecutando openvpn, voy a cerrarlo")
                         subprocess.run(("sudo", "kill_openvpn.sh"))
+
+                    # Voy a chequear si tengo protonvpn conectado antes del logout
+                    if NautaProtocol.check_if_protonvpn_running():
+                        print("Está ejecutando protonvpn, voy a desconectarlo")
+                        subprocess.run(("protonvpn", "disconnect"))
 
                     NautaProtocol.logout(
                         session=self.session,
